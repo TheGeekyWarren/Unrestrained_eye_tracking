@@ -1,5 +1,4 @@
 import time, threading
-#from pynput import mouse
 from picamera2 import Picamera2, Preview, MappedArray
 import os
 from datetime import datetime as dt
@@ -12,28 +11,33 @@ import pandas as pd
 start = time.monotonic()
 start_trial = 0
 
+# Variables to test runtime of functions
 t0 = 0
 t0c = True
 t1 = 0
 tn = 0
 
-#frame capture recording
+#frame capture recording - Initialising csv file for image info storage
 columns = ['trial_number', 'file_name', 'time_from_trial_start', 'touch']
 fcr = pd.DataFrame(columns = columns)
 fc_data = 'FrameCapture_Data_GazeXBI_{}.csv'.format(start)
 tch_info = []
 tch_flag = 0
 
-def csv_init():
-    global columns, fcr, fc_data, start
-    fcr = pd.DataFrame(columns = columns)
-    fc_data = 'FrameCapture_Data_GazeXBI_{}.csv'.format(start)
-
+# Initialising trial flags 
 stop = True
 session = True
 
+# Set number of images captured per second (cap_rate), exposure time (exp_time) and analogue gain (anl_gain) here
+# NOTE - set the cap_rate such that 1/cap_rate, which is the sleep time (slp_tm; see line 40), is 
+# at least 10 milliseconds more than exposure time to buffer any jitters in run time of other functions
+# NOTE - exposure time is in microseconds. For milliseconds, divide by 1000.
+# NOTE - the lower the exposure time, the greater the analogue gain needed. 
 cap_rate = 10
+exp_time = 6000 
+anl_gain = 10.0
 
+# Sleep time - the function pauses for this much time depending on how many images you wish to capture per second. 
 slp_tm = round(1/cap_rate, 3)
 print("sleep time = ",slp_tm)
 trial_n = 0
@@ -75,7 +79,14 @@ server_socket.bind((SERVER_IP, SERVER_PORT))
 server_socket.listen(1)
 print('Server listening on {}:{}'.format(SERVER_IP, SERVER_PORT))
 
+def csv_init():
+    # To initialise new csv file
+    global columns, fcr, fc_data, start
+    fcr = pd.DataFrame(columns = columns)
+    fc_data = 'FrameCapture_Data_GazeXBI_{}.csv'.format(start)
+
 def listen2mac():
+    # Modifying trial flags with information received from mworks(via python)
     global stop, session, trial_n, start_trial, fcr, start, fc_data, tch_info, tch_flag
     while True:
         # Accept a client connection
@@ -151,114 +162,20 @@ def save_img(img_req):
         tch_info = []
         tch_flag=0
     cv2.imwrite(file_path, img_arr)
-    #tn = tn+1
-    
 
 def cap_img():
     #capturing jpg 
     global t0, t0c
-    """if t0c:
-        t0 = time.monotonic()
-        t0c = False"""
     img_arr = picam2.capture_array()
     timestamp = dt.now().strftime('%Y%m%d%H%M%S%f')[:-3]
     tr_off = time.monotonic()
     return img_arr, timestamp, tr_off
 
-'''
-def on_click(x, y, button, pressed):
-    global stop, session, trial_n
-    if pressed:
-        if button==button.left:
-            print("Starting recording")
-            stop = False
-            trial_n = trial_n+1
-        if button==button.right:
-            print("Stopping recording") 
-            stop = True
-        if button==button.middle:
-            print("Exiting")
-            session = False
-            return False
-'''
-
-
-"""
-def runs():
-    global slp_tm, start, stop, session, t0, t1, tn
-    if not session:
-        metadata = picam2.capture_metadata()
-        print(metadata)
-        #t1 = time.monotonic()
-        #print(t1-t0)
-        #print(tn)
-        #print("avg fps = ", tn/(t1-t0))
-        #picam2.stop_preview()
-    if session:
-        stt = (slp_tm-time.monotonic()+start)
-        stt = round(stt, 3) if stt>0 else 0
-        time.sleep(stt)
-        start = time.monotonic()
-        if not stop:
-            print("Capturing image")
-            #cap_img()
-            img_arr, tmstp, off = cap_img()
-            threading.Thread(target=save_img, args = ([img_arr, tmstp], )).start()
-           
-        else:
-            off = 0
-            
-        nxt = (slp_tm-time.monotonic()+start)
-        nxt = round(nxt, 3) if nxt>0 else 0
-        #print(nxt*1000)
-        time.sleep(nxt)
-        print("Time of run = ",(time.monotonic()-start)*1000, end = '\r')
-        runs()
-        #threading.Timer(nxt, runs).start()
-"""
-
-#camera = CAM()
-'''
-def start_video(trial):
-    """
-    Start recording a video with the specified trial number.
-
-    :param trial: Trial number
-    """
-    # Get the current date and time
-    timestamp = dt.now().strftime('%Y%m%d%H%M%S')
-
-    # Create a folder on the desktop with the current date if it doesn't exist
-    folder_path = os.path.expanduser('~/Desktop/{}'.format(dt.now().strftime('%Y-%m-%d')))
-    os.makedirs(folder_path, exist_ok=True)
-
-    # Start recording a video with the filename based on the timestamp and trial number
-    file_path = os.path.join(folder_path, 'GazeXBI_{}_trial_{}.h264'.format(timestamp, trial))
-
-    camera.resolution = (1280, 720)
-    camera.framerate = 25
-
-    camera.start_recording(file_path)
-    print('Video recording started:', file_path)
-
-def stop_video():
-    """
-    Stop the video recording.
-    """
-    if camera.recording:
-        camera.stop_recording()
-        print('Video recording stopped')
-    else:
-        print('No video recording to stop')
-        '''
-
+# Initialising picamera
 picam2 = Picamera2()
-"""exp_tm = 3000
-anlg_gn = exp_tm/1000"""
-camera_config = picam2.create_still_configuration(controls={"FrameRate":50, "ExposureTime": 6000, "AnalogueGain": 10.0}, main={"size": (1280, 720)}, lores={"size": (640, 480)}, display="lores", buffer_count=10)
+camera_config = picam2.create_still_configuration(controls={"FrameRate":50, "ExposureTime": exp_time, "AnalogueGain": anl_gain}, main={"size": (1280, 720)}, lores={"size": (640, 480)}, display="lores", buffer_count=10)
 picam2.configure(camera_config)
 picam2.pre_callback = apply_timestamp
-#picam2.start_preview(Preview.QTGL)
 picam2.start()
 
 # Create a folder on the desktop with the current date if it doesn't exist
@@ -266,21 +183,15 @@ folder_path = os.path.expanduser('~/Desktop/{}'.format(dt.now().strftime('%Y-%m-
 os.makedirs(folder_path, exist_ok=True)
 os.chdir(folder_path)
 
+# Running listining to trial flags on separate thread to run the image capture in uninterrupted manner (avoids time spent in initialising upon every new trial)
 threading.Thread(target=listen2mac).start()
-#listener = mouse.Listener(on_click=on_click)
-#listener.start()
 
 while True:
-    if not session:
+    if not session: 
         metadata = picam2.capture_metadata()
         print(metadata)
         print("ending")
         break
-        #t1 = time.monotonic()
-        #print(t1-t0)
-        #print(tn)
-        #print("avg fps = ", tn/(t1-t0))
-        #picam2.stop_preview()
     if session:
         stt = (slp_tm-time.monotonic()+start)
         stt = round(stt, 3) if stt>0 else 0
@@ -288,19 +199,15 @@ while True:
         start = time.monotonic()
         if not stop:
             print("Capturing image")
-            #cap_img()
             img_arr, tmstp, off = cap_img()
-            threading.Thread(target=save_img, args = ([img_arr, tmstp], )).start()
-           
+            threading.Thread(target=save_img, args = ([img_arr, tmstp], )).start() #Saving is done on a separate thread to prevent it from holding up the code
         else:
             off = 0
             
         nxt = (slp_tm-time.monotonic()+start)
         nxt = round(nxt, 3) if nxt>0 else 0
-        #print(nxt*1000)
         time.sleep(nxt)
         print("Time of run = ",(time.monotonic()-start)*1000, end = '\r')
-        #threading.Timer(nxt, runs).start()
 
 
 
