@@ -1,0 +1,552 @@
+//
+// I/O Devices
+//
+//With touch and framecapture recorded synchronously
+
+%define sound_path = 'sounds/'
+resource (sound_path)
+
+resource/python_file ('Py2MW_v5_singlesystem_test.py')
+
+iodevice/mio mIO (
+    data_interval = 1 ms
+    reward_a = IO_rewardA
+    reward_b = IO_rewardB
+    touch_x_calib = TOUCH_x_dva 
+    touch_y_calib = TOUCH_y_dva
+    touch_x_raw = TOUCH_x_raw
+    touch_y_raw = TOUCH_y_raw
+    looptime = IO_mIOlooptime
+    )
+
+iodevice/mouse_input Mouse (
+    mouse_position_x = IO_mouse_x
+    mouse_position_y = IO_mouse_y
+    mouse_down = IO_mouse_down
+    hide_cursor = NO
+    use_mirror_window = YES
+    )
+
+
+///////////////////////////////////////////////////////////////////////////////
+
+//
+// Variables
+//
+
+group target {
+    var target_size = 0
+    var target_speed = 0  // Degrees per second
+    var target_heading = 15  // Degrees
+    var target_position_x = 0
+    var target_position_y = 0
+    var static_target_position_x = 0
+    var static_target_position_y = 0
+    var target_shape = "circle" 
+    var shapes_list = ["star 4", "circle", "symmetric 6", "symmetric 3", "cross 50"]
+    var EXP_sizes = [5, 5]
+    var EXP_speeds = [7, 7]
+}
+
+group TOUCH_IO {
+    var IO_mIOlooptime = 0
+    var IO_background = (bool)(0)
+    var IO_lowBackground = (bool)(0)
+    var IO_IconDynamicStimulus = (bool)(0)
+    var IO_IconPictures = (bool)(0)
+    var IO_IconStaticStimulus = (bool)(0)  
+    var IO_IconSize = 5 
+    var IO_mouse_x = (float)(0) {
+        if (IO_mouse_down) {
+            TOUCH_x_dva = IO_mouse_x
+        }
+    }
+    var IO_mouse_y = (float)(0) {
+        if (IO_mouse_down) {
+            TOUCH_y_dva = IO_mouse_y
+        }
+    }
+    var IO_mouse_down = (bool)(0) {
+        if (IO_mouse_down) {
+            TOUCH_x_dva = IO_mouse_x
+            TOUCH_y_dva = IO_mouse_y
+        }
+        if (!IO_mouse_down) {
+            TOUCH_x_dva = -500
+            TOUCH_y_dva = -500
+        }
+    }
+    var reward = (float)(0) {
+        INFO_rewardGiven_ml = INFO_rewardGiven_ml + reward
+        IO_rewardB = reward
+    }
+    
+    var IO_rewardA = (float)(0)
+    var IO_rewardB = (float)(0)
+    var TOUCH_x_dva = (float)(0)
+    var TOUCH_y_dva = (float)(0)
+    var TOUCH_x_raw = 0
+    var TOUCH_y_raw = 0
+    var IO_midIdentifier = (string)('')
+    var IO_midConfidence = 0
+    var IO_midImage = 0
+    var IO_midTakeSnapshot = 0
+    var IO_midImageFileName = 0
+    var IO_target = 0
+}
+
+group STIM {
+    var IconDynamicStimulus_posx = 0
+    var IconPictures_posx = 0
+    var IconStaticStimulus_posx = 0
+    var target_alpha = (float)(1) (persistant = 1)
+    var Icon_alpha = 0.5
+    var background_luminance = (float)(0.2) (persistant = 1)
+}
+
+group INTERNAL_AND_OLD {
+    var success = 0 {
+        INFO_success = INFO_success + 1
+    }
+    var failure = 0 {
+        INFO_failure = INFO_failure + 1
+    }
+    var ignore = 0 {
+        INFO_ignore = INFO_ignore + 1
+    }
+    var INFO_trials = 0
+    var EXP_version = 'v4'
+    var EXP_screen_sizeX = display_bounds('left')*2
+    var EXP_screen_sizeY = display_bounds('top')*2
+    var EXP_picture_size = (display_bounds('top')*2) *0.75
+    var EXP_picture_y = 0 + (EXP_screen_sizeY / 2/4) 
+    var EXP_response_window = 3
+    var TRIAL_end = 0
+    var TRIAL_start = 0
+    var TRIAL_reactionTrigger = 0
+    var TRIAL_reactionEvent = 0
+    var TRIAL_outcome = '0'
+    var TRIAL_type = (string)('')
+    var EXP_project = 'GazeXBI'
+    var EXP_task = 'BaouncingBall_v01'
+    var pump_AorB = 'A'
+    var coin = 0
+    var current_elapsed_time = 0
+    var previous_elapsed_time = 0
+    var selection = 0
+    var Animals = ['null', 'null']
+    var sel = 0
+    var test = display_bounds('top')
+    
+    var arrangeCounter = 0
+    var EXP_changeArrangementTimer = 3600
+    
+    selection IconsArrangement (
+        values = 0,1,2,3,4,5
+        advance_on_accept = YES
+        autoreset = YES
+        nsamples = 1
+        selection = random_without_replacement
+        sampling_method = cycles
+    )
+}
+
+group INFO {
+    var INFO_rewardGiven_ml = (float)(0)
+    var INFO_success = 0
+    var INFO_ignore = 0
+    var INFO_failure = 0
+    var EXP_experimentVersion = ''
+}
+
+group PREFERENCES {
+    var EXP_monkeyName = '' (persistant = 1)
+    var CTRL_stimuliSize_percent = (float)(100)
+    var CTRL_showTarget_ms = 10000 (persistant = 1)
+    var CTRL_holdTarget_ms = 20
+    var CTRL_VideoBufferTimer_ms = 1000
+    var CTRL_response_window = 5
+    var CTRL_reward_ml = 0.375 (persistant = 1)
+    var CTRL_ITI_ms = disc_rand(1500,2500) (persistant = 1)
+    var CTRL_sessionLength_minutes = (float)(1000) (persistant = 1)
+    var CTRL_reward_timer_ms = 2000
+}
+
+// Macros
+%define target_position_x_max = (display_bounds('right') - display_bounds('left') - target_size) / 2
+%define target_position_x_min = -target_position_x_max
+%define target_position_y_max = (display_bounds('top') - display_bounds('bottom') - target_size) / 2
+%define target_position_y_min = -target_position_y_max
+%define target_delta_r = target_speed * (current_elapsed_time - previous_elapsed_time) / 1e6
+%define target_heading_radians = target_heading * pi() / 180
+%define update_target_heading (new_heading)
+    target_heading = fmod(new_heading, 360)
+%end
+
+//
+// Sounds
+wav_file correct ('./sounds/Coin.wav')
+wav_file wrong ('./sounds/failure.wav')
+//
+
+
+//
+// Stimuli
+//
+
+
+fixation_point lowBackgroundBlack (
+    color = 0,0,0
+    trigger_width = EXP_screen_sizeY 
+    trigger_watch_x = TOUCH_x_dva
+    trigger_watch_y = TOUCH_y_dva
+    trigger_flag = IO_lowBackground
+    x_size = EXP_screen_sizeX 
+    y_size = 1 + (EXP_screen_sizeY / 4) 
+    x_position = 0
+    y_position = 0 - (EXP_screen_sizeY / 2.5) 
+    rotation = 0
+    alpha_multiplier = 1
+    )
+
+circle ball (
+    color = 1,0,0
+    x_size = target_size - 1 
+    x_position = target_position_x
+    y_position = target_position_y
+    alpha_multiplier = 1
+    )
+
+fixation_point DynamicTarget (
+    trigger_width = target_size
+    trigger_watch_x = TOUCH_x_dva
+    trigger_watch_y = TOUCH_y_dva
+    trigger_flag = IO_target
+    color = 1,0,0
+    x_size = target_size
+    y_size = target_size
+    x_position = target_position_x
+    y_position = target_position_y
+    rotation = 0
+    alpha_multiplier = 0
+    )
+
+fixation_point IconDynamicStimulus (
+    color = 0,1,0
+    trigger_width = IO_IconSize * 0.52
+    trigger_watch_x = TOUCH_x_dva
+    trigger_watch_y = TOUCH_y_dva
+    trigger_flag = IO_IconDynamicStimulus
+    x_size = IO_IconSize 
+    y_size = IO_IconSize
+    x_position = IconDynamicStimulus_posx
+    y_position = 1 - (EXP_screen_sizeY / 2.5)
+    alpha_multiplier = Icon_alpha
+    rotation = 0
+    )
+
+fixation_point IconPictures (
+    color = 0,1,0
+    trigger_width = target_size * 0.52
+    trigger_watch_x = TOUCH_x_dva
+    trigger_watch_y = TOUCH_y_dva
+    trigger_flag = IO_IconPictures
+    x_size = IO_IconSize * 0.85
+    y_size = IO_IconSize * 0.85
+    x_position = IconPictures_posx
+    y_position = 1 - (EXP_screen_sizeY / 2.5)
+    alpha_multiplier = 1
+    rotation = 45
+    )
+
+fixation_point background (
+    color = 0.5, 0.5, 0.5
+    trigger_width = EXP_screen_sizeY 
+    trigger_watch_x = TOUCH_x_dva
+    trigger_watch_y = TOUCH_y_dva
+    trigger_flag = IO_background
+    x_size = EXP_screen_sizeX
+    y_size = EXP_screen_sizeY 
+    x_position = 0
+    y_position = 0 
+    rotation = 0
+    alpha_multiplier = 1
+    )
+
+
+// Actions
+render_actions update_target (elapsed_time = current_elapsed_time) {
+    if (previous_elapsed_time == 0) {
+        previous_elapsed_time = current_elapsed_time
+    }
+
+    target_position_x += target_delta_r * cos(target_heading_radians)
+    target_position_y += target_delta_r * sin(target_heading_radians)
+
+    choose {
+        when ((cos(target_heading_radians) < 0 and target_position_x <= target_position_x_min) or
+              (cos(target_heading_radians) > 0 and target_position_x >= target_position_x_max)) {
+            update_target_heading (180 - target_heading)
+        }
+        when ((sin(target_heading_radians) < 0 and target_position_y <= target_position_y_min) or
+              (sin(target_heading_radians) > 0 and target_position_y >= target_position_y_max)) {
+            update_target_heading (-target_heading)
+        }
+    }
+
+    previous_elapsed_time = current_elapsed_time
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
+
+//
+// Filters
+//
+
+
+//
+// Optimizers
+//
+
+
+//
+// Protocols
+//
+
+protocol 'BouncingBall v1A' (interruptible = 1) {
+    EXP_version = EXP_experimentVersion
+    start_device_io (mIO)
+    start_device_io (Mouse)
+    // start_device_io (monkeyID)
+    
+
+    block 'BLOCK' (interruptible = YES) {
+        task 'TRIAL' {
+
+            state BEGIN (interruptible = YES) {
+
+                Icon_alpha = 0.5
+                target_size = (EXP_screen_sizeY / 3.5) * (CTRL_stimuliSize_percent/100)
+                IconDynamicStimulus_posx = 0
+
+                live_queue_stimulus (background)
+                live_queue_stimulus (lowBackgroundBlack)    
+                live_queue_stimulus (IconDynamicStimulus)
+                
+                update_stimulus_display ()
+				
+                schedule (
+  					delay = next_frame_time() - now()
+  					duration = 0ms
+  					repeats = 0
+  					) {
+  					TRIAL_reactionTrigger = 1
+				}
+                goto (WAIT_FOR_TOUCH)
+            }
+            
+            state WAIT_FOR_TOUCH (interruptible = YES) {
+                
+                start_timer (
+                    timer = ignore_timer
+                    duration = CTRL_showTarget_ms
+                    duration_units = ms
+                    )
+
+                goto (
+                    target = WAIT_FOR_RELEASE
+                    when = IO_IconDynamicStimulus
+                    )
+            }
+
+            
+            state WAIT_FOR_RELEASE (interruptible = YES) {
+                Icon_alpha = 1
+                
+                //action/run_python_string (touch_info())
+                
+                start_timer (
+                    timer = ignore_timer
+                    duration = CTRL_showTarget_ms
+                    duration_units = ms
+                    )
+
+                goto (
+                    target = VIDEO_BUFFER
+                    when = IO_IconDynamicStimulus == 0
+                    )
+            }
+
+            state VIDEO_BUFFER(interruptible = YES) {
+
+                dequeue_stimulus (lowBackgroundBlack)
+                dequeue_stimulus (IconDynamicStimulus)
+                
+                TRIAL_start = TRIAL_start + 1
+                update_stimulus_display ()
+                report ('====Start Trial $TRIAL_start====')
+
+                TRIAL_type = 'dynamic'
+                TRIAL_reactionEvent = 1
+                
+                target_size = disc_rand(EXP_sizes[0], EXP_sizes[1])
+                target_speed = disc_rand(EXP_speeds[0], EXP_speeds[1]) 
+                target_shape = shapes_list[1]
+
+                target_heading = rand(0, 360)  // Random heading
+                previous_elapsed_time = 0
+
+                target_position_x = rand(target_position_x_min, target_position_x_max)
+                target_position_y = rand(target_position_y_min, target_position_y_max)            
+                
+                // Trigger RaspberryPi via network socket
+                action/run_python_string (start())                
+
+                start_timer (
+                    timer = VideoBufferTimer
+                    duration = CTRL_VideoBufferTimer_ms
+                    duration_units = ms
+                    )
+
+                goto (
+                    target = TASK_DYNAMIC
+                    when = timer_expired(VideoBufferTimer)
+                    )
+            }
+
+
+            state TASK_DYNAMIC (interruptible = YES) {
+
+                dequeue_stimulus (background)
+                queue_stimulus (update_target)
+                
+                live_queue_stimulus (DynamicTarget)
+                live_queue_stimulus (ball)
+                //white_noise_background ()
+                update_display ()
+                                
+                Icon_alpha = 1
+
+                start_timer (
+                    timer = TargetTimer
+                    duration = CTRL_response_window
+                    duration_units = s
+                    )
+
+               goto (
+                    target = 'IGNORED'
+                    when = timer_expired(TargetTimer) 
+                    )
+
+                goto (
+                    target = 'REWARD_FLUID'
+                    when = IO_target == 1 
+                    )
+
+                goto (
+                    target = 'NO_REWARD'
+                    when = IO_background == 1 
+                    )
+            }
+
+            
+            state REWARD_FLUID (interruptible = YES) {
+                report ('++++++ Correct')
+                play_sound (correct)
+
+                dequeue_stimulus (background)
+                dequeue_stimulus (DynamicTarget)
+                dequeue_stimulus (ball)
+                update_stimulus_display ()
+                
+                reward = CTRL_reward_ml
+                success = success + 1
+                //action/run_python_string (touch_info())
+                TRIAL_outcome = "hit"
+                
+                goto (END_TRIAL)                 
+            }
+
+            state NO_REWARD (interruptible = YES) {
+                report ('------ Wrong')
+                play_sound (wrong)
+
+                dequeue_stimulus (background)
+                dequeue_stimulus (lowBackgroundBlack)
+                dequeue_stimulus (IconDynamicStimulus)
+                dequeue_stimulus (DynamicTarget)
+                dequeue_stimulus (ball)
+                update_stimulus_display ()
+                
+                failure = failure + 1
+                TRIAL_outcome = "wrong"
+
+                goto (END_TRIAL)       
+            }
+            
+            state IGNORED (interruptible = YES) {
+                report ('------ Ignored')
+
+                dequeue_stimulus (background)
+                dequeue_stimulus (lowBackgroundBlack)
+                dequeue_stimulus (IconDynamicStimulus)
+                dequeue_stimulus (DynamicTarget)
+                dequeue_stimulus (ball)
+                update_stimulus_display ()
+                
+                ignore = ignore + 1
+                TRIAL_outcome = "ignore"
+                
+                goto (
+                    target = END_TRIAL
+                    when = NOT(IO_lowBackground)
+                    )
+                           
+            }
+
+            state END_TRIAL (interruptible = YES) {
+                update_stimulus_display ()
+                
+                INFO_trials = INFO_trials + 1
+                TRIAL_end = TRIAL_start
+                action/run_python_string (pause_video())
+                
+                goto (CHECK_AND_WAIT_FOR_UNTAP)
+            }
+
+            state CHECK_AND_WAIT_FOR_UNTAP (interruptible = YES) {
+                goto (
+                    target = INTERTRIAL_INTERVAL
+                    when = NOT(IO_lowBackground)
+                    )
+            }
+
+            state INTERTRIAL_INTERVAL (interruptible = YES) {
+                start_timer (
+                    timer = intertrial_timer
+                    duration = CTRL_ITI_ms
+                    duration_units = ms
+                    )
+
+                goto (
+                    target = CHECK_AND_WAIT_FOR_UNTAP
+                    when = IO_lowBackground
+                    )
+
+                goto (
+                    target = BEGIN
+                    when = timer_expired(intertrial_timer) 
+                    )
+            }
+
+        }
+    }
+    action/run_python_string (stop_video())
+    dequeue_stimulus (background)
+    dequeue_stimulus (lowBackgroundBlack)
+    update_stimulus_display ()
+    stop_device_io (mIO)
+    stop_device_io (Mouse)
+    // stop_device_io (monkeyID)
+}
